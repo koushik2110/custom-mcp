@@ -324,4 +324,5 @@ PORT = int(os.getenv("PORT", 8000))
 
 if __name__ == "__main__":
     # Run the MCP server with Railway port support
-    mcp.run(transport="sse", port=PORT)
+    # Bind to 0.0.0.0 to accept external connections on Railway
+    mcp.run(transport="sse", host="0.0.0.0", port=PORT)
