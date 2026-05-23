@@ -16,13 +16,20 @@ current_db: Optional[str] = None
 
 def auto_connect_from_env():
     """
-    Automatically connect to MongoDB if connection details are provided via environment variables.
-    This allows passing MongoDB config through MCP client JSON configuration.
+    Automatically connect to MongoDB if connection details are provided via environment variables or headers.
+    Checks both environment variables and special header-like env vars (X_MONGODB_URI, X_MONGODB_DATABASE).
     """
     global mongo_client, current_db
     
+    # Try standard environment variables first
     mongodb_uri = os.getenv("MONGODB_URI")
     mongodb_database = os.getenv("MONGODB_DATABASE")
+    
+    # If not found, try header-style environment variables (headers are often passed as env vars in MCP)
+    if not mongodb_uri:
+        mongodb_uri = os.getenv("X_MONGODB_URI") or os.getenv("X-MONGODB-URI")
+    if not mongodb_database:
+        mongodb_database = os.getenv("X_MONGODB_DATABASE") or os.getenv("X-MONGODB-DATABASE")
     
     if mongodb_uri and mongodb_database:
         try:
@@ -37,7 +44,7 @@ def auto_connect_from_env():
             current_db = None
 
 
-# Auto-connect on startup if environment variables are set
+# Auto-connect on startup
 auto_connect_from_env()
 
 
