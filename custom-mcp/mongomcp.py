@@ -5,6 +5,8 @@ from typing import Any, Dict, List, Optional
 import json
 import os
 import sys
+from datetime import datetime
+from bson import ObjectId
 
 # Initialize FastMCP server
 mcp = FastMCP("MongoDB MCP Server")
@@ -46,6 +48,39 @@ def auto_connect_from_env():
 
 # Auto-connect on startup
 auto_connect_from_env()
+
+
+class MongoJSONEncoder(json.JSONEncoder):
+    """Custom JSON encoder for MongoDB types including datetime objects."""
+    
+    def default(self, o):
+        if isinstance(o, datetime):
+            return o.isoformat()
+        if isinstance(o, ObjectId):
+            return str(o)
+        return super().default(o)
+
+
+def serialize_mongo_doc(doc: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Recursively serialize MongoDB document, converting ObjectId and datetime to JSON-serializable types.
+    
+    Args:
+        doc: MongoDB document dictionary
+    
+    Returns:
+        Serialized document dictionary
+    """
+    if isinstance(doc, dict):
+        return {key: serialize_mongo_doc(value) for key, value in doc.items()}
+    elif isinstance(doc, list):
+        return [serialize_mongo_doc(item) for item in doc]
+    elif isinstance(doc, ObjectId):
+        return str(doc)
+    elif isinstance(doc, datetime):
+        return doc.isoformat()
+    else:
+        return doc
 
 
 @mcp.tool()
@@ -165,13 +200,13 @@ def read_documents(
         db = mongo_client[current_db]
         cursor = db[collection].find(query_filter).limit(limit)
         
-        # Convert to list and handle ObjectId
+        # Convert to list and serialize MongoDB types
         documents = []
         for doc in cursor:
-            doc['_id'] = str(doc['_id'])
-            documents.append(doc)
+            serialized_doc = serialize_mongo_doc(doc)
+            documents.append(serialized_doc)
         
-        return json.dumps(documents, indent=2)
+        return json.dumps(documents, indent=2, cls=MongoJSONEncoder)
     
     except json.JSONDecodeError:
         return "Error: Invalid JSON format for query"
